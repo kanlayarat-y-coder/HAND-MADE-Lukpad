@@ -11,6 +11,8 @@ function vAOrders(){
  const wait=all0.filter(o=>o.status==="รอชำระเงิน").length;
  const all=S.slipOnly?all0.filter(o=>o.slipImg||o.slip):all0;
  const unsent=all0.filter(o=>o.synced!==true).length;
+ /* สลิปที่เก็บได้แค่ "ชื่อไฟล์" (แนบตอนสคริปต์ชีตเวอร์ชันเก่า) = ยังไม่มีรูปให้ดู ต้องแนบใหม่ */
+ const nameOnly=all0.filter(o=>{const i=o.slipImg||"";return !!i&&!/^(https?:\/\/|data:image\/)/i.test(i)}).length;
  const counts=FLOW.map(s=>s+" "+all0.filter(o=>o.status===s).length).join(" · ");
  return `<h2>จัดการคำสั่งซื้อ</h2>
  <div class="card" style="margin-bottom:12px"><div class="row"><b>รวม ${all0.length} ใบ</b>
@@ -22,8 +24,10 @@ function vAOrders(){
    <span class="mute">อัปเดตล่าสุด: ${typeof lastSync!=="undefined"&&lastSync?lastSync:"—"}</span>
    ${sheetUrl?"":`<span class="tag warn">ยังไม่ได้ตั้งลิงก์ชีต</span>`}
    ${typeof sheetVersion!=="undefined"&&sheetVersion>0&&sheetVersion<2?`<span class="tag warn">สคริปต์ในชีตเป็นเวอร์ชันเก่า — วาง gs/Code.gs ใหม่แล้ว Deploy ใหม่</span>`:""}
+   ${nameOnly?`<span class="tag warn">สลิปเก่าเปิดดูรูปไม่ได้ ${nameOnly} ใบ — ต้องแนบใหม่</span>`:""}
    ${unsent?`<span class="tag warn">ยังไม่ส่งขึ้นชีต ${unsent} ใบ (จะลองใหม่เอง)</span>`:`<span class="tag ok">ส่งขึ้นชีตครบแล้ว</span>`}
   </div>
+  ${nameOnly?`<div class="mute" style="margin-top:6px;background:#fff3f3;padding:8px;border-radius:8px"><b>สลิป ${nameOnly} ใบถูกเก็บไว้แค่ชื่อไฟล์</b> (แนบตอนสคริปต์ชีตยังเป็นเวอร์ชันเก่า จึงไม่ขึ้น Google Drive) — ใบที่มีป้ายนี้ให้แนบรูปใหม่ผ่านช่อง “แนบ/เปลี่ยนสลิป” ท้ายใบนั้น ระบบจะส่งรูปขึ้น Drive และแสดงในชีตคอลัมน์ <code>slip_preview</code> ให้เอง · ถ้าลูกค้ายังเปิดแอปในเครื่องเดิมที่เคยแนบอยู่ ให้เปิดทิ้งไว้ ระบบจะลองอัปโหลดสลิปเดิมขึ้น Drive ให้เอง</div>`:""}
   <div class="mute" style="margin-top:6px">${counts}</div>
   <div class="mute">ออเดอร์/สลิปที่ลูกค้าส่งมาจะเด้งเข้ามาเองภายใน ~20 วินาที · เปิดสลิปได้จากรูปในใบสั่งซื้อ หรือกด “เปิดสลิปขนาดเต็ม” (ลิงก์ Drive อยู่ในแท็บ ORDERS/PAYMENTS คอลัมน์ slip_image) · <b>ในชีตก็เห็นรูปสลิปในเซลล์เลย</b> ที่คอลัมน์ <code>slip_preview</code>${typeof SLIP_FOLDER_URL!=="undefined"&&SLIP_FOLDER_URL?` · <a href="${esc(SLIP_FOLDER_URL)}" target="_blank" rel="noopener">📁 เปิดโฟลเดอร์สลิปใน Drive</a>`:""}</div></div>`+
  (all.length?all.map(o=>orderCard(o,true)).join(""):`<p class="mute">${S.slipOnly?"ยังไม่มีคำสั่งซื้อที่แนบสลิป":"ยังไม่มีคำสั่งซื้อ"}</p>`);

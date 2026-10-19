@@ -13,6 +13,11 @@
  *    - Who has access: Anyone → Deploy → Allow access
  * 6. คัดลอก URL ที่ขึ้นต้นด้วย https://script.google.com/macros/s/.../exec
  *    ไปวางในหน้า "ซิงก์ชีต" ของแอป (เมนูแอดมิน)
+ * 7. (แนะนำ) เลือกฟังก์ชัน refreshPreviews แล้วกด Run (▶) — เขียนสูตร =IMAGE ให้ทุกแถวที่มีอยู่แล้ว
+ *    จะเห็นรูปสลิป/รูปสินค้าในเซลล์ทันที แม้แถวนั้นถูกสร้างไว้ก่อนอัปเดตสคริปต์
+ *
+ * ★ สำคัญมาก: ถ้าเคย deploy สคริปต์เวอร์ชันเก่าไว้ ต้องวางโค้ดนี้ทับ + Deploy เวอร์ชันใหม่เสมอ
+ *   ไม่งั้นปุ่ม/การแนบสลิปจะไม่ทำงาน (ฝั่งแอปจะขึ้นว่า "สคริปต์ในชีตเป็นเวอร์ชันเก่า")
  *
  * ★ ถ้าแก้สคริปต์ครั้งหลัง: Deploy → Manage deployments → ✎ Edit → Version: New version (ใช้ URL เดิมได้เลย)
  *
@@ -65,6 +70,8 @@ const GUIDE = [
   ["คอลัมน์เหล่านี้เป็นสูตร =IMAGE(...) ที่สคริปต์สร้างให้เองทุกครั้งที่ซิงก์ — จึงเห็นรูปทันทีที่เปิดชีต (อยากดูรูปใหญ่ = คลิกที่เซลล์ แล้วดูตัวอย่าง หรือคลิกลิงก์ในคอลัมน์ slip_image)"],
   ["แถวจะถูกปรับความสูงให้พอดีรูปอัตโนมัติ · อยากปิด/ปรับขนาด แก้ที่ตัวแปร PREVIEW บนสุดของไฟล์ Code.gs"],
   ["ห้ามพิมพ์ทับคอลัมน์ *_preview เอง (สคริปต์จะเขียนสูตรใหม่ทับทุกครั้งที่ซิงก์)"],
+  ["★ เปิดชีตแล้วช่องรูปว่าง (แถวเก่าที่มีมาก่อนอัปเดตสคริปต์): เลือกฟังก์ชัน refreshPreviews แล้วกด Run หนึ่งครั้ง"],
+  ["★ สลิปของออเดอร์เก่าที่ขึ้นเป็น “ชื่อไฟล์ .jpg/.png” เฉย ๆ = สลิปที่แนบตอนสคริปต์เวอร์ชันเก่า (รูปไม่เคยขึ้น Drive) — ต้องแนบใหม่จากหน้าแอดมิน หรือให้ลูกค้าเปิดแอปจากเครื่องเดิมแล้วแนบใหม่"],
   [""],
   ["■ แท็บต่าง ๆ และคอลัมน์"],
   ["PRODUCTS = ข้อมูลสินค้า"],
@@ -206,6 +213,26 @@ function writeTab(name, key, rows) {
   if (ci >= 0 && p.h) { try { sh.setRowHeights(2, v.length, p.h + 12); } catch (e) { } }   // ให้แถวสูงพอดีรูป
 }
 
+/** เขียนสูตร "รูปในเซลล์" (slip_preview / product_image_preview) ให้ทุกแถวที่มีอยู่แล้ว
+ *  ★ รันด้วยมือครั้งเดียวหลัง Deploy เวอร์ชันนี้ — ใช้เมื่อเปิดชีตแล้วช่องรูปว่าง (เช่น ชีตมีข้อมูลอยู่ก่อนอัปเดตสคริปต์)
+ *  ไม่แตะคอลัมน์อื่นเลย เขียนเฉพาะคอลัมน์ *_preview + ปรับความสูงแถว */
+function refreshPreviews() {
+  const done = [];
+  Object.keys(PREVIEW).forEach(key => {
+    const sh = tab_(TAB[key], key), h = headersOf(sh, key), p = PREVIEW[key];
+    const last = sh.getLastRow();
+    const ci = h.indexOf(p.col), si = h.indexOf(p.src);
+    if (last < 2 || ci < 0 || si < 0) { done.push(key + ": ไม่มีข้อมูล"); return; }
+    const vals = sh.getRange(2, si + 1, last - 1, 1).getDisplayValues();
+    sh.getRange(2, ci + 1, vals.length, 1).setValues(vals.map(r => [imgFormula_(r[0], p.h, p.w)]));
+    if (p.h) { try { sh.setRowHeights(2, vals.length, p.h + 12); } catch (e) { } }
+    done.push(key + ": " + (vals.length) + " แถว");
+  });
+  const out = "อัปเดตสูตรรูปในชีตแล้ว → " + done.join(" · ");
+  Logger.log(out);
+  return out;
+}
+
 /* ---------- โฟลเดอร์เก็บรูปใน Google Drive ----------
  * ★ ใส่ ID ของโฟลเดอร์ (คัดลอกจากลิงก์ drive.google.com/drive/folders/<ID>) จะแม่นที่สุด
  *   ถ้า id ว่าง หรือเปิดไม่ได้ (ไม่มีสิทธิ์/ถูกลบ) จะค้นจากชื่อ และสร้างให้เองถ้ายังไม่มี
@@ -230,9 +257,19 @@ function uploadImage_(kind, prefix, refId, img) {
   if (!m) return /^https?:\/\//i.test(img || "") ? img : "";   // เป็นลิงก์อยู่แล้ว หรือไม่มีรูป
   const ext = /^png$/i.test(m[1]) ? "png" : (/webp/i.test(m[1]) ? "webp" : "jpg");
   const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), "image/" + ext, prefix + "-" + refId + "-" + new Date().getTime() + "." + ext);
-  const file = folder_(kind).createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);   // ให้เปิดดูได้จากชีต/แอป
+  const file = createImageFile_(kind, blob);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { }   // ให้เปิดดูได้จากชีต/แอป (ถ้าตั้งไม่ได้ ก็ยังเก็บไฟล์ไว้)
   return "https://lh3.googleusercontent.com/d/" + file.getId() + "=w1600";
+}
+
+/** สร้างไฟล์รูปในโฟลเดอร์ที่ตั้งไว้ — ถ้าเขียนไม่ได้ (ไม่มีสิทธิ์แก้ไข/โฟลเดอร์ถูกลบ) ให้ถอยไปใช้โฟลเดอร์ที่ค้นหรือสร้างตามชื่อแทน */
+function createImageFile_(kind, blob) {
+  const f = FOLDERS[kind] || FOLDERS.slips;
+  if (f.id) {
+    try { return DriveApp.getFolderById(f.id).createFile(blob); } catch (e) { }
+  }
+  const it = DriveApp.getFoldersByName(f.name);
+  return (it.hasNext() ? it.next() : DriveApp.createFolder(f.name)).createFile(blob);
 }
 
 /* ---------- ตรวจโฟลเดอร์/ทดสอบอัปโหลด (รันจาก Apps Script แล้วดูผลที่ View → Logs) ---------- */
@@ -387,8 +424,8 @@ function doPost(e) {
     const slips = [];
     const orderRows = orders.map(o => {
       const slipUrl = uploadImage_("slips", "slip", o.id, o.slipImg);   // อัปสลิปเข้า Drive ให้เปิดดูได้จากชีต
-      const row = orderRow_(o, now, slipUrl);
-      mergeOrder_(prevRows.find(x => String(x.order_id) === String(o.id)), row);   // ไม่ให้สถานะที่แอดมินคีย์ไว้ถอยหลัง
+      /* ★ ต้องใช้ผลลัพธ์จาก mergeOrder_ (เดิมทิ้งค่าไป ทำให้สถานะ/ลิงก์สลิปที่แอดมินมีอยู่ถูกเขียนทับหาย) */
+      const row = mergeOrder_(prevRows.find(x => String(x.order_id) === String(o.id)), orderRow_(o, now, slipUrl));
       slips.push({ id: o.id, img: /^https?:\/\//i.test(row.slip_image) ? row.slip_image : "" });
       return row;
     });
