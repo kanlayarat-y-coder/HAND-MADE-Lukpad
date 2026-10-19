@@ -18,8 +18,12 @@
  *
  * ★ หมายเหตุ
  * - แท็บ USERS อ่านได้แต่แอปจะไม่เขียนทับ (ยังเก็บสมาชิกในเครื่อง)
- * - ข้อมูลที่จะถูกเขียนทับเมื่อกด "อัปโหลดขึ้นชีต": PRODUCTS, ORDERS, ORDER_DETAILS, PAYMENTS, SHIPMENTS
- * - รูปสินค้าจะเข้า Google Drive โฟลเดอร์ "lukpad-images" แล้วนำลิงก์ไปใส่คอลัมน์ product_image
+ * - ข้อมูลที่จะถูกเขียนทับเมื่อกด "อัปโหลดขึ้นชีต": USERS, PRODUCTS, ORDERS, ORDER_DETAILS, PAYMENTS, SHIPMENTS
+ * - รูปสินค้าเข้า Google Drive โฟลเดอร์ "lukpad-images" และสลิปโอนเงินเข้าโฟลเดอร์ "lukpad-slips"
+ *   แล้วนำลิงก์ไปใส่คอลัมน์ product_image / slip_image (คลิกเปิดดูรูปได้จากชีตเลย)
+ * - ถ้าต้องการชี้โฟลเดอร์เอง (เช่น สร้างโฟลเดอร์ไว้ก่อนแล้ว) ให้ใส่ Folder ID ในตัวแปร FOLDERS ด้านล่าง
+ *   คัด ID จากลิงก์: drive.google.com/drive/folders/<FOLDER_ID> — ตัวเลือกนี้ชนะการค้นตามชื่อเสมอ
+ * - ช่องทางดูสลิปในชีต: แท็บ ORDERS (คอลัมน์ slip_image) และแท็บ PAYMENTS (คอลัมน์ slip_image)
  */
 
 const TAB = { users: "USERS", products: "PRODUCTS", orders: "ORDERS", details: "ORDER_DETAILS", payments: "PAYMENTS", shipments: "SHIPMENTS" };
@@ -27,10 +31,10 @@ const TAB = { users: "USERS", products: "PRODUCTS", orders: "ORDERS", details: "
 /* หัวคอลัมน์ที่ต้องมีของแต่ละแท็บ (ขาดอันไหน setup จะเพิ่มให้เอง) */
 const NEED = {
   users: ["user_id", "user_name", "email", "password", "phone", "address", "user_role"],
-  products: ["product_id", "product_name", "category", "product_image", "price", "shipping_fee", "size", "description", "is_customizable", "updated_at"],
-  orders: ["order_id", "user_id", "order_date", "total_amount", "order_status", "ship_address", "slip_image", "carrier", "tracking_number", "updated_at"],
+  products: ["product_id", "product_name", "category", "product_image", "product_image_preview", "price", "shipping_fee", "size", "description", "is_customizable", "updated_at"],
+  orders: ["order_id", "user_id", "order_date", "total_amount", "order_status", "ship_address", "slip_image", "slip_preview", "slip_name", "carrier", "tracking_number", "updated_at"],
   details: ["order_detail_id", "order_id", "product_id", "product_name", "quantity", "unit_price", "custom_note"],
-  payments: ["payment_id", "order_id", "receipt_no", "payment_date", "payment_amount", "payment_status"],
+  payments: ["payment_id", "order_id", "receipt_no", "payment_date", "payment_amount", "payment_status", "slip_image", "slip_preview", "slip_name"],
   shipments: ["shipment_id", "order_id", "shipping_company", "tracking_number", "shipping_status", "shipping_fee"]
 };
 
@@ -50,20 +54,34 @@ const GUIDE = [
   ["เคล็ดลับ: แก้ข้อมูลในแอปแล้วกดซิงก์เสมอ ไม่ต้องพิมพ์ลงชีตด้วยมือ (ถ้าพิมพ์ในชีต ให้กด ⬇ เพื่อนำกลับเข้าแอป)"],
   ["การสมัครสมาชิกใหม่จะถูกส่งขึ้นแท็บ USERS ให้อัตโนมัติ (ถ้าตั้งค่า Web App URL แล้ว)"],
   [""],
+  ["■ โฟลเดอร์รูปใน Google Drive"],
+  ["รูปสินค้า → โฟลเดอร์ lukpad-images · สลิปโอนเงิน → โฟลเดอร์ lukpad-slips"],
+  ["ถ้าสร้างโฟลเดอร์เองไว้แล้ว ให้ใส่ Folder ID ในตัวแปร FOLDERS (บนสุดของไฟล์ Code.gs) — คัดจากลิงก์ drive.google.com/drive/folders/…"],
+  ["ระบบตั้งสิทธิ์ไฟล์เป็น “ใครมีลิงก์ดูได้” แล้วเขียนลิงก์ลงคอลัมน์ product_image / slip_image (คลิกเปิดรูปจากชีตได้)"],
+  ["ตรวจสิทธิ์/ทดสอบอัปโหลด: เลือกฟังก์ชัน checkDrive แล้วกด Run → ดูผลที่ View → Logs (ลบไฟล์ test-*.png ทิ้งได้)"],
+  [""],
+  ["■ เห็นรูปสลิป/รูปสินค้าในชีตเลย (ไม่ต้องคลิก ไม่ต้องเข้าแอป)"],
+  ["ORDERS คอลัมน์ slip_preview = รูปสลิปแสดงในเซลล์ · PAYMENTS คอลัมน์ slip_preview = รูปสลิป · PRODUCTS คอลัมน์ product_image_preview = รูปสินค้า"],
+  ["คอลัมน์เหล่านี้เป็นสูตร =IMAGE(...) ที่สคริปต์สร้างให้เองทุกครั้งที่ซิงก์ — จึงเห็นรูปทันทีที่เปิดชีต (อยากดูรูปใหญ่ = คลิกที่เซลล์ แล้วดูตัวอย่าง หรือคลิกลิงก์ในคอลัมน์ slip_image)"],
+  ["แถวจะถูกปรับความสูงให้พอดีรูปอัตโนมัติ · อยากปิด/ปรับขนาด แก้ที่ตัวแปร PREVIEW บนสุดของไฟล์ Code.gs"],
+  ["ห้ามพิมพ์ทับคอลัมน์ *_preview เอง (สคริปต์จะเขียนสูตรใหม่ทับทุกครั้งที่ซิงก์)"],
+  [""],
   ["■ แท็บต่าง ๆ และคอลัมน์"],
   ["PRODUCTS = ข้อมูลสินค้า"],
   ["   product_id = รหัสสินค้า · product_name = ชื่อสินค้า · category = ประเภท"],
-  ["   product_image = ลิงก์รูป (แอปอัปโหลดเข้า Google Drive ให้เอง) · price = ราคา · shipping_fee = ค่าจัดส่ง"],
+  ["   product_image = ลิงก์รูป (แอปอัปโหลดเข้า Google Drive ให้เอง) · product_image_preview = ช่องแสดงรูปในชีต (สูตรอัตโนมัติ) · price = ราคา · shipping_fee = ค่าจัดส่ง"],
   ["   size = ขนาด · description = รายละเอียด · is_customizable = เปิดให้ปรับแต่ง (1=ได้, 0=ไม่) · updated_at = วันเวลาที่อัปเดตล่าสุด"],
   ["ORDERS = คำสั่งซื้อ (1 แถว = 1 ใบสั่งซื้อ)"],
   ["   order_id = เลขคำสั่งซื้อ · user_id = รหัสสมาชิก · order_date = วันที่สั่ง · total_amount = ยอดรวม"],
   ["   order_status = สถานะ (รอชำระเงิน / ตรวจสอบชำระเงินแล้ว / กำลังจัดทำ / จัดส่งแล้ว / สำเร็จ / ยกเลิก)"],
-  ["   ship_address = ที่อยู่จัดส่ง · slip_image = ชื่อไฟล์สลิป · carrier = บริษัทขนส่ง · tracking_number = เลขพัสดุ · updated_at = วันเวลาที่อัปเดต"],
+  ["   ship_address = ที่อยู่จัดส่ง · carrier = บริษัทขนส่ง · tracking_number = เลขพัสดุ · updated_at = วันเวลาที่อัปเดต"],
+  ["   slip_image = ลิงก์รูปสลิปโอนเงินใน Google Drive (คลิกที่เซลล์เพื่อเปิดดูรูปได้เลย) · slip_preview = รูปสลิปที่แสดงในเซลล์ทันที · slip_name = ชื่อไฟล์สลิปเดิม"],
   ["ORDER_DETAILS = รายการสินค้าในแต่ละคำสั่งซื้อ (1 แถว = 1 รายการ)"],
   ["   order_detail_id = รหัสแถว · order_id = เลขคำสั่งซื้อ · product_id = รหัสสินค้า · product_name = ชื่อสินค้า ณ วันสั่งซื้อ"],
   ["   quantity = จำนวน · unit_price = ราคาต่อหน่วย · custom_note = ตัวเลือกปรับแต่ง (เช่น “สี: ชมพู, ขนาด: M”)"],
   ["PAYMENTS = การชำระเงิน (แถวจะเกิดขึ้นเมื่อลูกค้าแนบสลิป)"],
   ["   payment_id = รหัส · order_id = เลขคำสั่งซื้อ · receipt_no = ชื่อไฟล์สลิป · payment_date = วันที่โอน · payment_amount = จำนวนเงิน · payment_status = สถานะ"],
+  ["   slip_image = ลิงก์รูปสลิป (เปิดดูได้จากชีต) · slip_preview = รูปสลิปที่แสดงในเซลล์ · slip_name = ชื่อไฟล์สลิป"],
   ["SHIPMENTS = การจัดส่ง (แถวจะเกิดขึ้นเมื่อใส่เลขพัสดุ)"],
   ["   shipment_id = รหัส · order_id = เลขคำสั่งซื้อ · shipping_company = บริษัทขนส่ง · tracking_number = เลขพัสดุ · shipping_status = สถานะ"],
   ["USERS = สมาชิก (สมัครใหม่จะเข้าแท็บนี้อัตโนมัติ และมีสิทธิ์เฉพาะ customer เท่านั้น ไม่ว่าจะใส่อะไรในชีต)"],
@@ -141,28 +159,177 @@ function readTab(name, key) {
   return v.filter(r => r.join("").trim() !== "").map(r => { const o = {}; h.forEach((c, i) => { if (c) o[c] = r[i]; }); return o; });
 }
 
+/* ---------- แสดงรูปในชีตโดยตรง (เห็นรูปในเซลล์ ไม่ต้องคลิกเปิดลิงก์) ----------
+ * แท็บ → คอลัมน์รูปต้นฉบับ + ขนาดรูปที่จะแสดงในเซลล์ (สูง × กว้าง พิกเซล) และความสูงแถวที่ตั้งให้
+ * ★ อยากปิดการแสดงรูปของแท็บไหน = เอาคีย์นั้นออก (หรือใส่ h: 0 เพื่อไม่ปรับความสูงแถว)
+ * ★ ห้ามพิมพ์ทับคอลัมน์ *_preview เอง เพราะสคริปต์จะเขียนสูตรใหม่ทุกครั้งที่ซิงก์
+ */
+const PREVIEW = {
+  products: { src: "product_image", col: "product_image_preview", h: 110, w: 110 },
+  orders:   { src: "slip_image",    col: "slip_preview",           h: 160, w: 120 },
+  payments: { src: "slip_image",    col: "slip_preview",           h: 160, w: 120 }
+};
+
+/** ตัวคั่นอาร์กิวเมนต์ในสูตรตาม locale ของสเปรดชีต (ไทย/อังกฤษ = , · ยุโรปบางประเทศ = ;) */
+let SEP_ = null;
+function argSep_() {
+  if (SEP_ !== null) return SEP_;
+  let loc = "";
+  try { loc = ss().getSpreadsheetLocale() || ""; } catch (e) { }
+  SEP_ = /^(de|fr|es|it|pt|nl|ru|pl|tr|vi|id|da|cs|sv|fi|nb|el|hu|ro|sk|bg|uk|hr|lt|lv|et|sl|ca|is)/i.test(loc) ? ";" : ",";
+  return SEP_;
+}
+
+/** แปลง URL รูป → สูตร =IMAGE(...) ให้ชีตแสดงรูปในเซลล์ (คืนข้อความสั้น ๆ ถ้าไม่มีรูปจริง) */
+function imgFormula_(url, h, w) {
+  const u = String(url || "").trim();
+  if (!u) return "";
+  if (!/^https?:\/\//i.test(u)) return "— ไม่มีไฟล์รูป (เก็บไว้แค่ชื่อไฟล์) —";   // ออเดอร์เก่า
+  const m = /\/d\/([-\w]{20,})/.exec(u) || /[?&]id=([-\w]{20,})/.exec(u);
+  const link = m ? "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w1000" : u;   // ลิงก์ Drive → ใช้ endpoint ที่แสดงรูปได้แน่นอน
+  const s = argSep_();
+  return "=IMAGE(\"" + link + "\"" + s + " 4" + s + " " + (h || 110) + s + " " + (w || 110) + ")";
+}
+
 function writeTab(name, key, rows) {
   const sh = tab_(name, key), h = headersOf(sh, key), last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, h.length).clearContent();
   if (!rows.length) return;
-  const v = rows.map(r => h.map(c => (r[c] === undefined || r[c] === null) ? "" : r[c]));
+  const p = PREVIEW[key], pc = p ? p.col : null;
+  const ci = p && pc ? h.indexOf(pc) : -1;
+  const v = rows.map(r => {
+    const line = h.map(c => (r[c] === undefined || r[c] === null) ? "" : r[c]);
+    if (ci >= 0) line[ci] = imgFormula_(r[p.src], p.h, p.w);   // คำนวณจากค่าจริงของแถวนี้ (หลัง merge แล้ว)
+    return line;
+  });
   sh.getRange(2, 1, v.length, h.length).setValues(v);
+  if (ci >= 0 && p.h) { try { sh.setRowHeights(2, v.length, p.h + 12); } catch (e) { } }   // ให้แถวสูงพอดีรูป
 }
 
-/* ---------- รูปสินค้า: base64 จากแอป → Google Drive → คืนลิงก์ไปใส่ชีต ---------- */
-function imageFolder_() {
-  const it = DriveApp.getFoldersByName("lukpad-images");
-  return it.hasNext() ? it.next() : DriveApp.createFolder("lukpad-images");
+/* ---------- โฟลเดอร์เก็บรูปใน Google Drive ----------
+ * ★ ใส่ ID ของโฟลเดอร์ (คัดลอกจากลิงก์ drive.google.com/drive/folders/<ID>) จะแม่นที่สุด
+ *   ถ้า id ว่าง หรือเปิดไม่ได้ (ไม่มีสิทธิ์/ถูกลบ) จะค้นจากชื่อ และสร้างให้เองถ้ายังไม่มี
+ * ★ โฟลเดอร์ต้องอยู่ใน Drive ของบัญชีที่ Deploy (Execute as: Me) หรือถูกแชร์ให้บัญชีนั้นแบบแก้ไขได้
+ */
+const FOLDERS = {
+  images: { id: "",                                          name: "lukpad-images" },   // รูปสินค้า
+  slips:  { id: "1bNa8AbI-92b9MoiEa-9YMJWr83ON26G_",         name: "lukpad-slips" }     // สลิปโอนเงิน (โฟลเดอร์ที่เจ้าของร้านสร้างไว้)
+};
+
+function folder_(kind) {
+  const f = FOLDERS[kind] || FOLDERS.slips;
+  if (f.id) {
+    try { return DriveApp.getFolderById(f.id); } catch (e) { }   // ไม่มีสิทธิ์/หาไม่เจอ → ลองวิธีอื่นต่อ
+  }
+  const it = DriveApp.getFoldersByName(f.name);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(f.name);
 }
 
-function uploadImage_(productId, img) {
+function uploadImage_(kind, prefix, refId, img) {
   const m = /^data:image\/(png|jpe?g|webp);base64,(.+)$/.exec(img || "");
-  if (!m) return img || "";                 // ไม่ใช่ base64 = เป็น URL อยู่แล้ว เก็บไว้ตามเดิม
+  if (!m) return /^https?:\/\//i.test(img || "") ? img : "";   // เป็นลิงก์อยู่แล้ว หรือไม่มีรูป
   const ext = /^png$/i.test(m[1]) ? "png" : (/webp/i.test(m[1]) ? "webp" : "jpg");
-  const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), "image/" + ext, "product-" + productId + "-" + new Date().getTime() + "." + ext);
-  const file = imageFolder_().createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);   // ให้ลูกค้าดูรูปได้
-  return "https://lh3.googleusercontent.com/d/" + file.getId() + "=w1000";
+  const blob = Utilities.newBlob(Utilities.base64Decode(m[2]), "image/" + ext, prefix + "-" + refId + "-" + new Date().getTime() + "." + ext);
+  const file = folder_(kind).createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);   // ให้เปิดดูได้จากชีต/แอป
+  return "https://lh3.googleusercontent.com/d/" + file.getId() + "=w1600";
+}
+
+/* ---------- ตรวจโฟลเดอร์/ทดสอบอัปโหลด (รันจาก Apps Script แล้วดูผลที่ View → Logs) ---------- */
+function checkDrive() {
+  const out = [];
+  ["images", "slips"].forEach(kind => {
+    const conf = FOLDERS[kind];
+    let folder;
+    try {
+      folder = folder_(kind);
+      out.push("✅ " + kind + " → ใช้ได้: \"" + folder.getName() + "\"  id=" + folder.getId() +
+        (conf.id ? (folder.getId() === conf.id ? "  (ตรงกับ ID ที่ตั้งไว้)" : "  (⚠ ใช้ id อื่น เพราะ ID ที่ตั้งไว้เปิดไม่ได้)") : "  (ค้นจากชื่อ)"));
+      out.push("     ลิงก์โฟลเดอร์: https://drive.google.com/drive/folders/" + folder.getId());
+    } catch (e) {
+      out.push("❌ " + kind + " → ใช้ไม่ได้: " + e + "  (ตรวจว่าโฟลเดอร์อยู่ใน Drive ของบัญชีที่ Deploy หรือแชร์ให้บัญชีนั้น)");
+      return;
+    }
+    try {   // อัปไฟล์ทดสอบ 1 พิกเซล เพื่อพิสูจน์ว่าเขียนไฟล์ได้จริง
+      const blob = Utilities.newBlob(Utilities.base64Decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg=="), "image/png", "test-" + kind + "-" + new Date().getTime() + ".png");
+      const file = folder.createFile(blob);
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      out.push("     อัปโหลดทดสอบสำเร็จ → https://lh3.googleusercontent.com/d/" + file.getId() + "=w1600");
+    } catch (e) { out.push("     ⚠ เขียนไฟล์ในโฟลเดอร์นี้ไม่ได้: " + e); }
+  });
+  out.push("");
+  out.push("ถ้าเห็น ✅ ทั้งสองบรรทัด = ระบบพร้อมอัปโหลดรูปสินค้า/สลิปแล้ว (ลบไฟล์ test-*.png ทิ้งได้)");
+  Logger.log(out.join("\n"));
+  return out.join("\n");
+}
+
+/* ---------- แถวข้อมูล (ใช้ร่วมกันระหว่าง push ทั้งหมด และอัปเดตทีละออเดอร์) ---------- */
+const FLOW_ORDER = ["รอชำระเงิน", "ตรวจสอบชำระเงินแล้ว", "กำลังจัดทำ", "จัดส่งแล้ว", "สำเร็จ"];
+const flowRank = s => { const i = FLOW_ORDER.indexOf(s); return i < 0 ? 0 : i + 1; };
+
+function orderRow_(o, now, slipUrl) {
+  return {
+    order_id: o.id, user_id: o.userId, order_date: o.date, total_amount: o.total,
+    order_status: o.status || "รอชำระเงิน", ship_address: o.address || "",
+    slip_image: slipUrl || o.slip || "", slip_name: o.slip || "",
+    carrier: o.carrier || "", tracking_number: o.tracking || "", updated_at: now
+  };
+}
+function detailRows_(orderId, items, startId) {
+  let id = startId;
+  return (items || []).map(i => ({
+    order_detail_id: id++, order_id: orderId, product_id: i.pid, product_name: i.name,
+    quantity: i.qty, unit_price: i.price, custom_note: i.custom || ""
+  }));
+}
+function paymentRow_(row, orderId, nextId) {
+  return {
+    payment_id: nextId, order_id: orderId, receipt_no: row.slip_name, payment_date: row.order_date,
+    payment_amount: row.total_amount, payment_status: "มีสลิป", slip_image: row.slip_image, slip_name: row.slip_name
+  };
+}
+function shipmentRow_(row, orderId, nextId) {
+  return {
+    shipment_id: nextId, order_id: orderId, shipping_company: row.carrier, tracking_number: row.tracking_number,
+    shipping_status: row.order_status, shipping_fee: ""
+  };
+}
+const nextIdOf = (rows, field) => rows.reduce((m, x) => Math.max(m, parseFloat(x[field]) || 0), 0) + 1;
+
+/** สถานะ/เลขพัสดุที่แอดมินคีย์ในชีตเป็นตัวจริง — ลูกค้าอัปเดตทับแล้วต้องไม่ถอยหลัง */
+function mergeOrder_(oldRow, newRow) {
+  if (!oldRow) return newRow;
+  if (String(oldRow.order_status) === "ยกเลิก") newRow.order_status = "ยกเลิก";
+  else if (flowRank(oldRow.order_status) > flowRank(newRow.order_status)) newRow.order_status = oldRow.order_status;
+  if (oldRow.carrier && !newRow.carrier) newRow.carrier = oldRow.carrier;
+  if (oldRow.tracking_number && !newRow.tracking_number) newRow.tracking_number = oldRow.tracking_number;
+  if (oldRow.slip_name && !newRow.slip_name) newRow.slip_name = oldRow.slip_name;
+  if (/^https?:\/\//i.test(oldRow.slip_image || "") && !/^https?:\/\//i.test(newRow.slip_image || "")) newRow.slip_image = oldRow.slip_image;
+  return newRow;
+}
+
+/** อัปเดต/เพิ่ม “ออเดอร์เดียว” โดยไม่แตะออเดอร์อื่น (ใช้ตอนลูกค้าสั่งซื้อ/แนบสลิป) */
+function upsertOrder_(o, now) {
+  const slipUrl = uploadImage_("slips", "slip", o.id, o.slipImg);
+
+  const orders = readTab(TAB.orders, "orders");
+  const idx = orders.findIndex(x => String(x.order_id) === String(o.id));
+  const row = mergeOrder_(idx >= 0 ? orders[idx] : null, orderRow_(o, now, slipUrl));
+  if (idx >= 0) orders[idx] = row; else orders.push(row);
+  writeTab(TAB.orders, "orders", orders);
+
+  const details = readTab(TAB.details, "details").filter(x => String(x.order_id) !== String(o.id));
+  writeTab(TAB.details, "details", details.concat(detailRows_(o.id, o.items, nextIdOf(details, "order_detail_id"))));
+
+  const pays = readTab(TAB.payments, "payments").filter(x => String(x.order_id) !== String(o.id));
+  if (row.slip_image || row.slip_name) pays.push(paymentRow_(row, o.id, nextIdOf(pays, "payment_id")));
+  writeTab(TAB.payments, "payments", pays);
+
+  const ships = readTab(TAB.shipments, "shipments").filter(x => String(x.order_id) !== String(o.id));
+  if (row.tracking_number) ships.push(shipmentRow_(row, o.id, nextIdOf(ships, "shipment_id")));
+  writeTab(TAB.shipments, "shipments", ships);
+
+  return { id: o.id, img: /^https?:\/\//i.test(row.slip_image) ? row.slip_image : "" };
 }
 
 /* ---------- GET: ดึงข้อมูลทั้งหมดจากชีต ---------- */
@@ -172,6 +339,7 @@ function doGet(e) {
     if (action !== "list") return json({ ok: true });
     return json({
       ok: true,
+      version: 2,   // ใช้ให้แอปตรวจว่าสคริปต์ที่ deploy ใหม่แล้วหรือยัง (2 = รองรับ action "order")
       users: readTab(TAB.users, "users"),
       products: readTab(TAB.products, "products"),
       orders: readTab(TAB.orders, "orders"),
@@ -194,39 +362,50 @@ function doPost(e) {
       user_role: (x.role === "admin" ? "admin" : "customer")
     }));
     if (d.action === "users") { writeTab(TAB.users, "users", usersRows(d.users)); return json({ ok: true, users: (d.users || []).length }); }
-    if (d.action !== "push") return json({ ok: false, error: "action ต้องเป็น push หรือ users เท่านั้น" });
+    /* อัปเดตออเดอร์ทีละใบ (ลูกค้าสั่งซื้อ/แนบสลิป/แอดมินเปลี่ยนสถานะ) */
+    if (d.action === "order") {
+      const o = d.order || {};
+      const slip = upsertOrder_(o, now);
+      return json({ ok: true, slips: [slip], images: [], order: o.id });
+    }
+
+    if (d.action !== "push") return json({ ok: false, error: "action ต้องเป็น push, users หรือ order เท่านั้น" });
 
     writeTab(TAB.users, "users", usersRows(d.users));
 
     /* สินค้า (รูป base64 ถูกส่งเข้า Drive แล้วแทนที่ด้วยลิงก์) */
     const products = (d.products || []).map(p => ({
-      product_id: p.id, product_name: p.name, category: p.category || "", product_image: uploadImage_(p.id, p.img),
+      product_id: p.id, product_name: p.name, category: p.category || "", product_image: uploadImage_("images", "product", p.id, p.img),
       price: p.price, shipping_fee: p.ship, size: p.size || "", description: p.desc || "",
       is_customizable: p.custom ? 1 : 0, updated_at: now
     }));
     writeTab(TAB.products, "products", products);
 
-    /* คำสั่งซื้อ + รายละเอียด + การชำระเงิน + การจัดส่ง */
+    /* คำสั่งซื้อ + รายละเอียด + การชำระเงิน (สลิป) + การจัดส่ง */
     const orders = d.orders || [];
-    writeTab(TAB.orders, "orders", orders.map(o => ({
-      order_id: o.id, user_id: o.userId, order_date: o.date, total_amount: o.total, order_status: o.status || "รอชำระเงิน",
-      ship_address: o.address || "", slip_image: o.slip || "", carrier: o.carrier || "", tracking_number: o.tracking || "", updated_at: now
-    })));
-
-    let dn = 1; const details = [], pays = [], ships = [];
-    orders.forEach(o => (o.items || []).forEach(i => details.push({
-      order_detail_id: dn++, order_id: o.id, product_id: i.pid, product_name: i.name,
-      quantity: i.qty, unit_price: i.price, custom_note: i.custom || ""
-    })));
-    orders.forEach(o => {
-      if (o.slip) pays.push({ payment_id: pays.length + 1, order_id: o.id, receipt_no: o.slip, payment_date: o.date, payment_amount: o.total, payment_status: "มีสลิป" });
-      if (o.tracking) ships.push({ shipment_id: ships.length + 1, order_id: o.id, shipping_company: o.carrier || "", tracking_number: o.tracking, shipping_status: o.status || "", shipping_fee: "" });
+    const prevRows = readTab(TAB.orders, "orders");
+    const slips = [];
+    const orderRows = orders.map(o => {
+      const slipUrl = uploadImage_("slips", "slip", o.id, o.slipImg);   // อัปสลิปเข้า Drive ให้เปิดดูได้จากชีต
+      const row = orderRow_(o, now, slipUrl);
+      mergeOrder_(prevRows.find(x => String(x.order_id) === String(o.id)), row);   // ไม่ให้สถานะที่แอดมินคีย์ไว้ถอยหลัง
+      slips.push({ id: o.id, img: /^https?:\/\//i.test(row.slip_image) ? row.slip_image : "" });
+      return row;
     });
+    writeTab(TAB.orders, "orders", orderRows);
+
+    const details = [];
+    orders.forEach(o => details.push.apply(details, detailRows_(o.id, o.items, details.length + 1)));
+    const pays = [];
+    orders.forEach((o, i) => { if (o.slip || o.slipImg) pays.push(paymentRow_(orderRows[i], o.id, pays.length + 1)); });
+    const ships = [];
+    orders.forEach((o, i) => { if (orderRows[i].tracking_number) ships.push(shipmentRow_(orderRows[i], o.id, ships.length + 1)); });
     writeTab(TAB.details, "details", details);
     writeTab(TAB.payments, "payments", pays);
     writeTab(TAB.shipments, "shipments", ships);
 
-    /* คืนลิงก์รูปใหม่ให้แอปนำไปเก็บในเครื่องลูกค้าด้วย */
-    return json({ ok: true, images: products.map(p => ({ id: p.product_id, img: p.product_image })), products: products.length, orders: orders.length });
+    /* คืนลิงก์รูปใหม่ (สินค้า + สลิป) ให้แอปนำไปเก็บในเครื่องแทน base64 */
+    const images = products.map(p => ({ id: p.product_id, img: p.product_image }));
+    return json({ ok: true, images: images, slips: slips, products: products.length, orders: orders.length });
   } catch (err) { return json({ ok: false, error: String(err) }); }
 }

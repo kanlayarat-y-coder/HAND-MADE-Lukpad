@@ -1,1 +1,1 @@
-﻿order_id,user_id,order_date,total_amount,order_status,ship_address,slip_image,carrier,tracking_number,updated_at
+﻿order_id,user_id,order_date,total_amount,order_status,ship_address,slip_image,slip_preview,slip_name,carrier,tracking_number,updated_at

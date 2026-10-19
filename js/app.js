@@ -7,6 +7,7 @@ function render(){
  else if(S.me&&S.me.role!=="admin"&&ADMIN_ONLY.includes(S.view))S.view="shop";
  else if(S.me&&S.me.role==="admin"&&!ADMIN_ONLY.includes(S.view))S.view="a-orders";
  nav();$("#app").innerHTML=VIEWS[S.view]();
+ if(typeof syncPoll==="function")syncPoll();   // เปิด/ปิดการดึงข้อมูลอัตโนมัติตามหน้าปัจจุบัน
 }
 
 /* ---------- Events ---------- */
@@ -19,6 +20,9 @@ document.addEventListener("click",e=>{
  if(a==="rm"){S.cart.splice(+b.dataset.i,1);render()}
  if(a==="delp"&&confirm("ลบสินค้านี้?")){DB.products=DB.products.filter(p=>p.id!==+b.dataset.id);save();render()}
  if(a==="clrpimg"){const v=$("#pimg-val"),pr=$("#pimg-prev");if(v)v.value="";if(pr)pr.innerHTML="📿"}
+ if(a==="sliponly"){S.slipOnly=!S.slipOnly;render()}
+ if(a==="auto"){S.auto=S.auto===false;syncPoll();render();toast(S.auto?"เปิดอัปเดตอัตโนมัติ (ทุก 20 วินาที)":"ปิดอัปเดตอัตโนมัติ — กด “อัปเดตเดี๋ยวนี้” เอง")}
+ if(a==="refresh"){toast("กำลังดึงข้อมูลล่าสุด...");pullQuiet(true).then(ok=>toast(ok?"อัปเดตล่าสุด "+lastSync:"ดึงข้อมูลไม่ได้ — ตรวจการเชื่อมต่อ/ลิงก์ชีต"))}
  if(a==="sheet-save"){setSheetUrl($("#sheet-url").value);toast(sheetUrl?"บันทึกลิงก์แล้ว":"ล้างลิงก์แล้ว")}
  if(a==="sheet-test")sheetTest();
  if(a==="sheet-push")sheetPush();
@@ -26,7 +30,17 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("change",async e=>{
  const id=e.target.dataset?.slip;
- if(id){if(!e.target.files[0])return;const o=DB.orders.find(x=>x.id==id);o.slip=e.target.files[0].name;save();toast("แนบสลิปแล้ว รอแอดมินตรวจสอบ");return render()}
+ if(id){
+  const f=e.target.files[0];if(!f)return;
+  const o=DB.orders.find(x=>x.id==id);if(!o)return;
+  if(!S.me)return go("login");
+  if(o.userId!==S.me.id&&S.me.role!=="admin")return toast("แนบสลิปได้เฉพาะคำสั่งซื้อของตัวเอง");
+  if(o.status!=="รอชำระเงิน"&&S.me.role!=="admin")return toast("คำสั่งซื้อนี้ปิดรับการแนบสลิปแล้ว (สถานะ: "+o.status+")");
+  try{const data=await shrinkImage(f,1400,.85);o.slip=f.name;o.slipImg=data;o.synced=false;save();toast("แนบสลิปแล้ว กำลังส่งให้แอดมิน...");
+   orderPush(o).then(ok=>{toast(ok?"ส่งสลิปให้แอดมินแล้ว":"ยังส่งขึ้นชีตไม่ได้ — ระบบจะลองใหม่เองทุก 20 วินาที");render()});}
+  catch(err){toast("อ่านไฟล์สลิปไม่ได้: "+err.message)}
+  return render();
+ }
  if(e.target.dataset?.pimg){
   const f=e.target.files[0];if(!f)return;
   try{const data=await shrinkImage(f);const v=$("#pimg-val"),pr=$("#pimg-prev");if(v)v.value=data;if(pr)pr.innerHTML=`<img src="${data}" alt="">`}
@@ -55,8 +69,10 @@ document.addEventListener("submit",e=>{
  if(f.id==="f-checkout"){
   if(!S.me)return go("login");
   const t=totals(S.cart);
-  DB.orders.push({id:DB.nextOrder++,userId:S.me.id,date:new Date().toISOString().slice(0,10),items:S.cart,address:d.address,total:t.total,status:"รอชำระเงิน",slip:"",carrier:"",tracking:""});
+  const o={id:DB.nextOrder++,userId:S.me.id,date:new Date().toISOString().slice(0,10),items:S.cart,address:d.address,total:t.total,status:"รอชำระเงิน",slip:"",slipImg:"",carrier:"",tracking:"",synced:false,pending:true};
+  DB.orders.push(o);
   S.cart=[];save();toast("สั่งซื้อแล้ว กรุณาโอนเงินและแนบสลิป");go("orders");
+  orderPush(o).then(ok=>{toast(ok?"ส่งคำสั่งซื้อให้แอดมินแล้ว":"ยังส่งขึ้นชีตไม่ได้ — ระบบจะลองใหม่เองทุก 20 วินาที");if(S.view==="orders")render()});
  }
  if(f.id==="f-profile"){if(!S.me)return go("login");Object.assign(S.me,d);save();usersPush();toast("บันทึกแล้ว")}
  if(f.id==="f-prod"){
@@ -69,8 +85,13 @@ document.addEventListener("submit",e=>{
   if(S.me?.role!=="admin")return;
   const o=DB.orders.find(x=>x.id==f.dataset.ord);
   if(d.status==="จัดส่งแล้ว"&&!d.tracking)return toast("กรุณาใส่เลขพัสดุก่อนเปลี่ยนเป็นจัดส่งแล้ว");
-  Object.assign(o,{status:d.status,carrier:d.carrier,tracking:d.tracking});save();toast("อัปเดตสถานะแล้ว");render();
+  Object.assign(o,{status:d.status,carrier:d.carrier,tracking:d.tracking});save();toast("อัปเดตสถานะแล้ว (กำลังส่งขึ้นชีต)");render();
+  orderPush(o).then(ok=>{if(!ok)toast("ส่งขึ้นชีตไม่สำเร็จ — ระบบจะลองใหม่เองทุก 20 วินาที")});
  }
 });
 render();
 autoPull();   // ถ้าตั้งค่า SHEET_URL ไว้ จะดึงข้อมูลล่าสุดจากชีตให้ลูกค้าอัตโนมัติเมื่อเปิดเว็บ
+
+/* กลับมาที่แท็บ/หน้าต่างอีกครั้ง → อัปเดตทันที (ไม่ต้องรอรอบถัดไป) */
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&sheetUrl&&S.auto!==false&&shouldPoll())syncTick()});
+window.addEventListener("focus",()=>{if(sheetUrl&&S.auto!==false&&shouldPoll())syncTick()});

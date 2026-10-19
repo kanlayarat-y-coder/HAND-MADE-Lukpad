@@ -1,1 +1,1 @@
-﻿payment_id,order_id,receipt_no,payment_date,payment_amount,payment_status
+﻿payment_id,order_id,receipt_no,payment_date,payment_amount,payment_status,slip_image,slip_preview,slip_name

@@ -33,24 +33,41 @@ function timeline(o){
  if(o.status==="ยกเลิก")return `<span class="tag bad">ยกเลิก</span>`;
  return `<div class="steps">`+FLOW.map((s,i)=>`<div class="step ${i<=k?"done":""}">${s}</div>`).join("")+`</div>`;
 }
+function slipBox(o){
+ const img=o.slipImg||"",isUrl=/^https?:\/\//i.test(img),isData=/^data:image\//i.test(img);
+ if(!isUrl&&!isData) return o.slip
+  ? `<div class="slipbox"><b>สลิปโอนเงิน</b><div class="mute">แนบไว้: ${esc(o.slip)} — คำสั่งซื้อนี้บันทึกก่อนมีระบบเก็บรูป จึงเปิดดูรูปไม่ได้ (ให้ลูกค้าแนบใหม่ได้)</div></div>`
+  : "";
+ const link=isUrl?`<a class="btn" href="${esc(img)}" target="_blank" rel="noopener">เปิดสลิปขนาดเต็ม</a>`
+  :`<a class="btn" href="${esc(img)}" download="slip-${o.id}.jpg">ดาวน์โหลดสลิป</a>`;
+ return `<div class="slipbox"><b>สลิปโอนเงิน</b>
+  <a href="${esc(img)}" ${isUrl?`target="_blank" rel="noopener"`:`download="slip-${o.id}.jpg"`}><img class="slip" src="${esc(img)}" alt="สลิปของคำสั่งซื้อ ${o.id}" loading="lazy"></a>
+  <div class="row" style="margin-top:6px">${link}${o.slip?`<span class="mute">ไฟล์: ${esc(o.slip)}</span>`:""}</div></div>`;
+}
 function orderCard(o,admin){
  const user=DB.users.find(u=>u.id===o.userId);
  return `<div class="card" style="margin-bottom:12px"><div class="row"><b>คำสั่งซื้อ #${o.id}</b><span class="mute">${o.date}</span>${admin?`<span class="mute">· ${esc(user?.name)}</span>`:""}<span class="tag" style="margin-left:auto">${o.status}</span></div>
  ${timeline(o)}
  <ul>${o.items.map(i=>`<li>${esc(i.name)} × ${i.qty}<span class="mute"> ${esc(customText(i.custom))}</span></li>`).join("")}</ul>
  <div class="mute">ส่งที่: ${esc(o.address)}</div>
- <p>ยอดรวม <b>${baht(o.total)}</b> · สลิป: ${o.slip?`<span class="tag ok">แนบแล้ว (${esc(o.slip)})</span>`:`<span class="tag warn">ยังไม่แนบ</span>`}</p>
+ <p>ยอดรวม <b>${baht(o.total)}</b> · สลิป: ${o.slipImg||o.slip?`<span class="tag ok">แนบแล้ว</span>`:`<span class="tag warn">ยังไม่แนบ</span>`}</p>
+ ${slipBox(o)}
  ${o.tracking?`<p>ขนส่ง ${esc(o.carrier)} · เลขพัสดุ <b>${esc(o.tracking)}</b></p>`:""}
  ${admin?adminControls(o):customerPay(o)}</div>`;
 }
 function customerPay(o){
  if(o.status!=="รอชำระเงิน")return "";
  return `<div class="card" style="background:var(--soft)"><b>โอนเงินมาที่</b><div>ธนาคาร${esc(DB.bank.bank)} · ${esc(DB.bank.name)} · ${esc(DB.bank.no)}</div>
- <label>แนบสลิปโอนเงิน</label><input type="file" accept="image/*" data-slip="${o.id}"><div class="mute">แนบแล้วรอแอดมินตรวจสอบ ลูกค้าไม่สามารถเปลี่ยนสถานะเองได้</div></div>`;
+ <label>${o.slipImg?"แนบสลิปใหม่ (ทับของเดิม)":"แนบสลิปโอนเงิน"}</label><input type="file" accept="image/*" data-slip="${o.id}"><div class="mute">แนบแล้วรอแอดมินตรวจสอบ ลูกค้าไม่สามารถเปลี่ยนสถานะเองได้</div></div>`;
 }
 function vOrders(){
+ if(!S.me)return `<div class="card"><b>เข้าสู่ระบบเพื่อดูคำสั่งซื้อ</b><p class="mute">สมาชิกเท่านั้นที่ดูคำสั่งซื้อของตัวเองได้</p><p><button class="pri" data-go="login">เข้าสู่ระบบ</button></p></div>`;
  const mine=DB.orders.filter(o=>o.userId===S.me.id).reverse();
- return `<h2>คำสั่งซื้อของฉัน</h2>`+(mine.length?mine.map(o=>orderCard(o,false)).join(""):`<p class="mute">ยังไม่มีคำสั่งซื้อ</p>`);
+ const unsent=mine.filter(o=>o.synced!==true).length;
+ const bar=`<div class="card" style="margin-bottom:12px"><div class="row"><span class="mute">อัปเดตล่าสุด: ${typeof lastSync!=="undefined"&&lastSync?lastSync:"—"}</span>
+  <button data-act="refresh" style="margin-left:auto">อัปเดตเดี๋ยวนี้</button></div>
+  ${unsent?`<div class="mute" style="margin-top:6px">มี ${unsent} รายการที่ยังส่งขึ้นเซิร์ฟเวอร์ไม่สำเร็จ — ระบบจะลองใหม่ให้อัตโนมัติทุก 20 วินาที (เปิดหน้านี้ค้างไว้)</div>`:`<div class="mute" style="margin-top:6px">สถานะคำสั่งซื้อจะอัปเดตเองทุก ~20 วินาทีเมื่อแอดมินเปลี่ยนสถานะ</div>`}</div>`;
+ return `<h2>คำสั่งซื้อของฉัน</h2>`+bar+(mine.length?mine.map(o=>orderCard(o,false)).join(""):`<p class="mute">ยังไม่มีคำสั่งซื้อ</p>`);
 }
 function vProfile(){
  const u=S.me;
