@@ -1,4 +1,7 @@
 const S={me:null,view:"login",cart:[],sel:null,mode:"login",slipOnly:false,auto:true};
+/* กู้ “ผู้ใช้ที่ล็อกอินอยู่” จากครั้งก่อน → รีเฟรชหน้า/ปิดเปิดใหม่แล้วไม่ต้องเข้าสู่ระบบซ้ำ (ล้างทิ้งเมื่อกดออกจากระบบ) */
+try{const sid=localStorage.getItem(KEY_SESSION);if(sid)S.me=(DB.users||[]).find(u=>String(u.id)===String(sid))||null}catch(e){S.me=null}
+const saveSession=u=>{try{u?localStorage.setItem(KEY_SESSION,u.id):localStorage.removeItem(KEY_SESSION)}catch(e){}};
 const $=s=>document.querySelector(s);
 const esc=t=>String(t??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const baht=n=>Number(n).toLocaleString("th-TH")+" บาท";

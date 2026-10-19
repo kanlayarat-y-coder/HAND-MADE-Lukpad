@@ -1,9 +1,9 @@
 const FLOW=["รอชำระเงิน","ตรวจสอบชำระเงินแล้ว","กำลังจัดทำ","จัดส่งแล้ว","สำเร็จ"];
 const CUSTOM={color:["ชมพู","ฟ้า","ม่วง","ขาว"],size:["S (15–16 ซม.)","M (17–18 ซม.)","L (19–20 ซม.)"],pattern:["ดอกไม้","หัวใจ","ดาว","ผีเสื้อ"]};
-const CUSTOM_FEE=5,KEY="lukpad_v1";
+const CUSTOM_FEE=5,KEY="lukpad_v1",KEY_SESSION="lukpad_session";
 /* Web App URL ของ Apps Script (ส่วนขยาย → Apps Script → Deploy เป็น Web app)
    วางที่นี่ครั้งเดียว = ทุกเครื่อง/ทุกคนที่เปิดเว็บนี้ซิงก์กับสเปรดชีตเดียวกัน (ค่าในหน้า "ซิงก์ชีต" เฉพาะเครื่องจะเขียนทับช่องนี้) */
-const SHEET_URL="https://script.google.com/macros/s/AKfycbzJLHISieyLg-wJtrtkwI10r2hPOMb73RTS4hJNaT6fAQ8oDAErVR951E-x4piZ2q62/exec";
+const SHEET_URL="https://script.google.com/macros/s/AKfycbx-XDO4meR9se2wXeUDRkcLOwLwHJAfEm5BKsMQF0D9OY3DJJavpepbPPJZ5gSZdVr6/exec";
 /* ลิงก์โฟลเดอร์ Google Drive ที่เก็บ "สลิปโอนเงิน" (ให้ตรงกับ FOLDERS.slips ใน gs/Code.gs)
    ใช้ทำปุ่ม "เปิดโฟลเดอร์สลิปใน Drive" ในหน้าแอดมิน · เว้นว่าง "" ได้ถ้ายังไม่ต้องการ */
 const SLIP_FOLDER_URL="https://drive.google.com/drive/folders/1bNa8AbI-92b9MoiEa-9YMJWr83ON26G_";

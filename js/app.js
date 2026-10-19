@@ -15,7 +15,7 @@ document.addEventListener("click",e=>{
  const b=e.target.closest("[data-go],[data-act]");if(!b)return;
  if(b.dataset.go){go(b.dataset.go,b.dataset.id?+b.dataset.id:null);return}
  const a=b.dataset.act;
- if(a==="logout"){S.me=null;S.cart=[];go("login")}
+ if(a==="logout"){S.me=null;S.cart=[];saveSession(null);go("login")}
  if(a==="mode"){S.mode=S.mode==="login"?"register":"login";render()}
  if(a==="rm"){S.cart.splice(+b.dataset.i,1);render()}
  if(a==="delp"&&confirm("ลบสินค้านี้?")){DB.products=DB.products.filter(p=>p.id!==+b.dataset.id);save();render()}
@@ -53,11 +53,11 @@ document.addEventListener("submit",e=>{
   if(S.mode==="register"){
    if(DB.users.some(u=>u.email===d.email))return toast("อีเมลนี้ถูกใช้แล้ว");
    const u={id:DB.nextUser++,name:d.name,email:d.email,password:d.password,phone:d.phone,address:d.address,role:"customer"};
-   DB.users.push(u);save();S.me=u;usersPush();toast("สมัครสมาชิกแล้ว ยินดีต้อนรับ");go("shop");return;
+   DB.users.push(u);save();S.me=u;saveSession(u);usersPush();toast("สมัครสมาชิกแล้ว ยินดีต้อนรับ");go("shop");return;
   }
   const u=DB.users.find(x=>x.email===d.email&&x.password===d.password);
   if(!u)return toast("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-  S.me=u;go(u.role==="admin"?"a-orders":"shop");
+  S.me=u;saveSession(u);go(u.role==="admin"?"a-orders":"shop");
  }
  if(f.id==="f-add"){
   if(!S.me)return go("login");
@@ -89,6 +89,7 @@ document.addEventListener("submit",e=>{
   orderPush(o).then(ok=>{if(!ok)toast("ส่งขึ้นชีตไม่สำเร็จ — ระบบจะลองใหม่เองทุก 20 วินาที")});
  }
 });
+if(S.me&&S.view==="login")S.view=S.me.role==="admin"?"a-orders":"shop";   // กู้เซสชันแล้วเข้าเมนูตามสิทธิ์ทันที
 render();
 autoPull();   // ถ้าตั้งค่า SHEET_URL ไว้ จะดึงข้อมูลล่าสุดจากชีตให้ลูกค้าอัตโนมัติเมื่อเปิดเว็บ
 
