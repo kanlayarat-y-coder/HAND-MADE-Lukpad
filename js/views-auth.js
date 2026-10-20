@@ -22,6 +22,5 @@ function vLogin(){
  <p><button class="pri" style="width:100%">${reg?"สมัครสมาชิก":"เข้าสู่ระบบ"}</button></p></form>
  <p style="text-align:center"><button data-act="mode">${reg?"มีบัญชีแล้ว? เข้าสู่ระบบ":"ยังไม่มีบัญชี? สมัครสมาชิก"}</button></p>
  <p style="text-align:center"><button data-go="shop">ดูสินค้าก่อน (ไม่ต้องเข้าสู่ระบบ)</button></p>
- <p class="mute">ดูรายละเอียดสินค้าได้เลย แต่การสั่งซื้อต้องเข้าสู่ระบบ/สมัครสมาชิกก่อน</p>
- <p class="mute">ทดลองใช้: ลูกค้า hello@gmail.com / 1234 · แอดมิน admin@lukpad.com / admin1234</p></div>`;
+ <p class="mute">ดูรายละเอียดสินค้าได้เลย แต่การสั่งซื้อต้องเข้าสู่ระบบ/สมัครสมาชิกก่อน</p></div>`;
 }
