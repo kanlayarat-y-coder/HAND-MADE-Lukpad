@@ -10,6 +10,8 @@ const esc=t=>String(t??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const baht=n=>Number(n).toLocaleString("th-TH")+" บาท";
 function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2200)}
 function go(v,sel){S.view=v;S.sel=sel??null;if(v==="checkout"){S.step=1;S.payName=""}render()}
+/* สินค้านี้ปรับแต่งได้ไหม — CUSTOM_ALL=true = ทุกชิ้นปรับแต่งได้ (แอดมินปิดเฉพาะชิ้นได้ด้วย noCustom) · CUSTOM_ALL=false = ปิดการปรับแต่งทั้งร้าน */
+const canCustom=p=>!p?false:(CUSTOM_ALL?!p.noCustom:false);
 /* รูปสินค้า: แสดงรูปถ้ามี ไม่งั้นใช้ไอคอน (กัน XSS จาก src ที่ไม่ใช่ http/data:image) */
 const pImg=p=>p&&p.img&&/^(https?:\/\/|data:image\/)/i.test(p.img)?`<img src="${esc(p.img)}" alt="${esc(p.name||"สินค้า")}" loading="lazy">`:(p?p.icon||"📿":"");
 /* ย่อรูปในเครื่องเป็น base64 (สูงสุด max px, jpeg) ลดคุณภาพอัตโนมัติถ้าไฟล์ใหญ่เกิน limit */

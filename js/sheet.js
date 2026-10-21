@@ -33,7 +33,7 @@ function sheetParse(t){
 function sheetPayload(){
  return {action:"push",
   users:DB.users.map(u=>({id:u.id,name:u.name,email:u.email,password:u.password||"",phone:u.phone||"",address:u.address||"",role:u.role})),
-  products:DB.products.map(p=>({id:p.id,name:p.name,category:p.category||"",img:p.img||"",price:p.price,ship:p.ship??59,size:p.size||"",desc:p.desc||"",custom:p.custom?1:0})),
+  products:DB.products.map(p=>({id:p.id,name:p.name,category:p.category||"",img:p.img||"",price:p.price,ship:p.ship??59,size:p.size||"",desc:p.desc||"",custom:canCustom(p)?1:0})),
   orders:DB.orders.map(o=>({id:o.id,userId:o.userId,date:o.date,total:o.total,status:o.status,address:o.address||"",slip:o.slip||"",slipImg:o.slipImg||"",carrier:o.carrier||"",tracking:o.tracking||"",
    items:o.items.map(i=>({pid:i.pid,name:i.name,qty:i.qty,price:i.price,ship:i.ship||0,custom:customText(i.custom)}))}))};
 }
@@ -60,7 +60,7 @@ function sheetApply(d){ // ชีต → แอป
  DB.products=(d.products||[]).map(p=>{
   const o=old.find(x=>x.id==p.product_id);
   return {id:num(p.product_id),name:p.product_name||"",category:p.category||"",icon:o?.icon||"📿",img:String(p.product_image||"").trim()||(o?o.img:""),
-   price:num(p.price),ship:num(p.shipping_fee,59),size:p.size||"",desc:p.description||"",custom:["1","true","ได้"].includes(String(p.is_customizable).toLowerCase())||p.is_customizable==="TRUE"};
+   price:num(p.price),ship:num(p.shipping_fee,59),size:p.size||"",desc:p.description||"",custom:["1","true","ได้"].includes(String(p.is_customizable).toLowerCase())||p.is_customizable==="TRUE",noCustom:!!o?.noCustom};
  });
  const oldO=DB.orders.slice();
  DB.orders=(d.orders||[]).map(o=>{

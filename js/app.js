@@ -54,6 +54,11 @@ document.addEventListener("change",async e=>{
   catch(err){toast("อัปโหลดรูปไม่ได้: "+err.message)}
  }
 });
+document.addEventListener("input",e=>{   // ช่องตัวอักษร (A–Z, ก–ฮ) — เหลือตัวอักษรอังกฤษ/ไทย ตัวเดียว
+ const t=e.target;if(t.name!=="ตัวอักษร"&&!/_text$/.test(t.name||""))return;
+ const v=(t.value||"").replace(/[^A-Za-z\u0E01-\u0E3A]/g,"").slice(0,1);
+ if(v!==t.value)t.value=v;
+});
 document.addEventListener("submit",async e=>{
  e.preventDefault();const f=e.target,d=Object.fromEntries(new FormData(f));
  if(f.id==="f-auth"){
@@ -69,7 +74,7 @@ document.addEventListener("submit",async e=>{
  if(f.id==="f-add"){
   if(!S.me)return go("login");
   const p=DB.products.find(x=>x.id==d.pid);
-  const custom=p.custom?{สี:d["สี"],ขนาด:d["ขนาด"],ลาย:d["ลาย"],ตัวอักษร:d["ตัวอักษร"]}:null;
+  const custom=canCustom(p)?{สี:d["สี"],ขนาด:d["ขนาด"],ลาย:d["ลาย"],ตัวอักษร:d["ตัวอักษร"]}:null;
   S.cart.push({pid:p.id,name:p.name,price:p.price,ship:p.ship,qty:Math.max(1,+d.qty||1),custom});
   toast("เพิ่มลงตะกร้าแล้ว");go("cart");
  }
@@ -112,7 +117,7 @@ if(f.id==="f-pay"){   // ขั้นตอนที่ 3 — ยืนยัน
  if(f.id==="f-profile"){if(!S.me)return go("login");Object.assign(S.me,d);save();usersPush();toast("บันทึกแล้ว")}
  if(f.id==="f-prod"){
   if(S.me?.role!=="admin")return toast("ต้องเข้าสู่ระบบด้วยสิทธิ์แอดมิน");
-  const item={name:d.name,category:d.category,icon:d.icon||"📿",img:d.img||"",price:+d.price,ship:+d.ship,size:d.size,desc:d.desc,custom:!!d.custom};
+  const item={name:d.name,category:d.category,icon:d.icon||"📿",img:d.img||"",price:+d.price,ship:+d.ship,size:d.size,desc:d.desc,noCustom:!!d.noCustom,custom:!d.noCustom};
   if(S.sel)Object.assign(DB.products.find(x=>x.id===S.sel),item);else DB.products.push({id:DB.nextProduct++,...item});
   save();toast("บันทึกสินค้าแล้ว");go("a-products");
  }

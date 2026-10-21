@@ -8,7 +8,7 @@ function vDetail(){
  const sel=(n,a)=>`<label>${n}</label><select name="${n}"><option value="">ไม่เลือก</option>${a.map(o=>`<option>${o}</option>`).join("")}</select>`;
  const add=S.me?`<form id="f-add"><input type="hidden" name="pid" value="${p.id}">
   <label>จำนวน</label><input name="qty" type="number" min="1" value="1" style="max-width:100px">
-  ${p.custom?`<h3>ปรับแต่งสินค้า (ตัวเลือกละ ${CUSTOM_FEE} บาท)</h3>${sel("สี",CUSTOM.color)}${sel("ขนาด",CUSTOM.size)}${sel("ลาย",CUSTOM.pattern)}<label>ตัวอักษร (A–Z, ก–ฮ)</label><input name="ตัวอักษร" maxlength="1" style="max-width:100px">`:""}
+  ${canCustom(p)?`<h3>ปรับแต่งสินค้า (ตัวเลือกละ ${CUSTOM_FEE} บาท)</h3>${sel("สี",CUSTOM.color)}${sel("ขนาด",CUSTOM.size)}${sel("ลาย",CUSTOM.pattern)}<label>ตัวอักษร (A–Z, ก–ฮ)</label><input name="ตัวอักษร" maxlength="1" style="max-width:100px">`:""}
   <p><button class="pri">เพิ่มลงตะกร้า</button></p></form>`
   :`<div class="card" style="background:var(--soft)"><b>ต้องลงทะเบียน/เข้าสู่ระบบก่อนจึงจะสั่งซื้อได้</b><div class="mute">ตอนนี้คุณดูสินค้าในโหมดผู้เยี่ยมชม</div><p><button class="pri" data-go="login">เข้าสู่ระบบ / สมัครสมาชิก</button></p></div>`;
  return `<button data-go="shop">กลับ</button><div class="card" style="margin-top:12px"><div class="row"><div class="ph" style="width:180px;height:180px;font-size:70px">${pImg(p)}</div><div style="flex:1;min-width:220px"><h2>${esc(p.name)}</h2><div class="mute">${esc(p.category)}</div><p>${esc(p.desc)}</p><p class="mute">ขนาด ${esc(p.size)} · ค่าจัดส่ง ${baht(p.ship)}</p><p class="price">${baht(p.price)}</p></div></div>
@@ -38,7 +38,7 @@ function vCart(){
 /* ---------- หน้าสั่งซื้อ: 1 ปรับแต่ง → 2 ข้อมูลจัดส่ง → 3 ชำระเงิน (ยอดรวมรวมค่าจัดส่ง) ---------- */
 const CK_STEPS=[["1","ปรับแต่งสินค้า"],["2","ข้อมูลจัดส่ง"],["3","ชำระเงิน"]];
 /* สินค้านี้ปรับแต่งได้ไหม — ดูจากสินค้าปัจจุบันในร้าน (ถ้าสินค้าถูกลบไป ใช้ค่าที่บันทึกมากับตะกร้าแทน) */
-const ckCustom=i=>{const p=DB.products.find(x=>x.id===i.pid);return p?!!p.custom:!!i.custom};
+const ckCustom=i=>{const p=DB.products.find(x=>x.id===i.pid);return p?canCustom(p):true};
 const ckOpt=(n,list,val)=>`<select name="${n}"><option value="">ไม่เลือก</option>${list.map(o=>`<option ${o===val?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
 function ckHead(){
  return `<div class="steps">`+CK_STEPS.map(([n,l],i)=>`<div class="step ${i+1<=S.step?"done":""}">${n}. ${l}</div>`).join("")+`</div>`;
@@ -54,7 +54,7 @@ function ckStep1(){
    <div><label>สี</label>${ckOpt(`i${x}_color`,CUSTOM.color,c["สี"])}</div>
    <div><label>ขนาด</label>${ckOpt(`i${x}_size`,CUSTOM.size,c["ขนาด"])}</div>
    <div><label>ลาย</label>${ckOpt(`i${x}_pattern`,CUSTOM.pattern,c["ลาย"])}</div>
-   <div><label>ข้อความ / ตัวอักษร</label><input name="i${x}_text" maxlength="1" value="${esc(c["ตัวอักษร"]||"")}" placeholder="A–Z หรือ ก–ฮ"></div>
+   <div><label>ตัวอักษร (A–Z, ก–ฮ)</label><input name="i${x}_text" maxlength="1" value="${esc(c["ตัวอักษร"]||"")}" placeholder="A–Z หรือ ก–ฮ"></div>
   </div><div class="mute">ค่าปรับแต่ง ตัวเลือกละ ${CUSTOM_FEE} บาท ต่อ 1 ชิ้น (เลือกได้มากกว่า 1 ข้อ)</div>`
   :`<div class="mute">สินค้านี้ไม่มีตัวเลือกปรับแต่ง</div>`;
   return `<div class="card" style="margin-bottom:12px"><div class="row"><b>${esc(i.name)}</b><span class="mute">× ${i.qty} · ${baht(i.price*i.qty)}</span></div>${opt}</div>`;
@@ -82,7 +82,7 @@ function ckStep3(){
    <div class="sum">ค่าจัดส่ง <b>${baht(t.ship)}</b></div>
    <div class="sum total">ยอดชำระรวม <b class="price">${baht(t.total)}</b></div>
    <div class="mute">ยอดชำระข้างบนรวมค่าจัดส่งแล้ว · ส่งที่ ${esc(S.addr||S.me.address||"-")}</div>
-   ${noOpt.length?`<div class="mute" style="color:var(--warn)">ยังไม่ได้เลือกตัวเลือกปรับแต่งของ ${noOpt.map(i=>esc(i.name)).join(", ")} — ถ้าต้องการปรับแต่ง กด “ย้อนกลับ” ไปเลือกได้</div>`:""}
+   ${noOpt.length?`<div class="mute">ยังไม่ได้เลือกตัวเลือกปรับแต่งของ ${noOpt.map(i=>esc(i.name)).join(", ")} — ถ้าต้องการปรับแต่ง กด “ย้อนกลับ” ไปเลือกได้</div>`:""}
   </div>
   <div class="card"><b>ชำระเงิน</b>
    <div class="row">โอนเข้าบัญชี <b>${esc(b.bank)}</b> · ${esc(b.name)} · เลขที่ <b>${esc(b.no)}</b></div>

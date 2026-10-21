@@ -47,9 +47,9 @@ function vAProducts(){
   <p style="margin:8px 0 0"><input type="hidden" name="img" id="pimg-val" value="${esc(p?.img||"")}"><button type="button" class="dng" data-act="clrpimg">ลบรูปภาพ</button></p></div>
   <div class="ph" id="pimg-prev" style="width:130px;height:130px;font-size:44px;margin:0">${pImg(p)}</div>
  </div>
- <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="custom" style="width:auto" ${p?.custom?"checked":""}> เปิดให้ปรับแต่งสินค้า</label>
+ ${CUSTOM_ALL?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="noCustom" style="width:auto" ${p?.noCustom?"checked":""}> ปิดการปรับแต่งสินค้านี้ (ปกติทุกสินค้าเปิดให้ปรับแต่งได้)</label>`:`<div class="mute">ปิดการปรับแต่งสินค้าทั้งร้านอยู่ (CUSTOM_ALL=false ใน config.js)</div>`}
  <p><button class="pri">${p?"บันทึกการแก้ไข":"เพิ่มสินค้า"}</button> ${p?`<button type="button" data-go="a-products">ยกเลิก</button>`:""}</p></form>
- <div class="card scroll" style="margin-top:12px"><table><tr><th>รหัส</th><th>รูป</th><th>ชื่อ</th><th>ราคา</th><th>ปรับแต่ง</th><th></th></tr>`+DB.products.map(x=>`<tr><td>${x.id}</td><td><span class="thumb">${pImg(x)}</span></td><td>${esc(x.name)}<div class="mute">${esc(x.category)}${x.desc?" · "+esc(x.desc).slice(0,40):""}</div></td><td>${baht(x.price)}</td><td>${x.custom?"ได้":"-"}</td><td><button data-go="a-products" data-id="${x.id}">แก้ไข</button> <button class="dng" data-act="delp" data-id="${x.id}">ลบ</button></td></tr>`).join("")+`</table></div>`;
+ <div class="card scroll" style="margin-top:12px"><table><tr><th>รหัส</th><th>รูป</th><th>ชื่อ</th><th>ราคา</th><th>ปรับแต่ง</th><th></th></tr>`+DB.products.map(x=>`<tr><td>${x.id}</td><td><span class="thumb">${pImg(x)}</span></td><td>${esc(x.name)}<div class="mute">${esc(x.category)}${x.desc?" · "+esc(x.desc).slice(0,40):""}</div></td><td>${baht(x.price)}</td><td>${canCustom(x)?"ได้":"ไม่ได้"}</td><td><button data-go="a-products" data-id="${x.id}">แก้ไข</button> <button class="dng" data-act="delp" data-id="${x.id}">ลบ</button></td></tr>`).join("")+`</table></div>`;
 }
 function vASync(){
  const localFile=typeof location!=="undefined"&&location.protocol==="file:";
