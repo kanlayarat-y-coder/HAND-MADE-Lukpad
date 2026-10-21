@@ -7,7 +7,7 @@ function nav(){
  }
  const items=S.me.role==="admin"
   ?[["a-orders","จัดการคำสั่งซื้อ"],["a-products","จัดการสินค้า"],["a-users","สมาชิก"],["a-sync","ซิงก์ชีต"]]
-  :[["shop","สินค้า"],["cart","ตะกร้า ("+S.cart.length+")"],["orders","คำสั่งซื้อ"],["profile","บัญชี"]];
+  :[["shop","สินค้า"],["cart","ตะกร้า ("+S.cart.length+")"],["checkout","สั่งซื้อ"],["orders","คำสั่งซื้อของฉัน"],["profile","บัญชี"]];
  n.innerHTML=items.map(([v,l])=>`<button class="${S.view===v?"on":""}" data-go="${v}">${l}</button>`).join("")+`<button data-act="logout">ออกจากระบบ</button>`;
 }
 

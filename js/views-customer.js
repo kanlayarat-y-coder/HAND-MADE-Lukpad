@@ -24,10 +24,81 @@ function customText(c){return c?Object.entries(c).filter(([,v])=>v).map(([k,v])=
 function vCart(){
  if(!S.cart.length)return `<h2>ตะกร้าสินค้า</h2><p class="mute">ยังไม่มีสินค้า เลือกสินค้าที่ชอบได้ที่หน้าสินค้า</p><button class="pri" data-go="shop">ดูสินค้า</button>`;
  const t=totals(S.cart);
- return `<h2>ตะกร้าสินค้า</h2><div class="card scroll"><table><tr><th>สินค้า</th><th>จำนวน</th><th>ราคา</th><th></th></tr>`+S.cart.map((i,x)=>`<tr><td>${esc(i.name)}<div class="mute">${esc(customText(i.custom))}</div></td><td>${i.qty}</td><td>${baht(i.price*i.qty+lineFee(i))}</td><td><button class="dng" data-act="rm" data-i="${x}">ลบ</button></td></tr>`).join("")+`</table></div>
- <p>ค่าสินค้า ${baht(t.goods)} · ค่าปรับแต่ง ${baht(t.cf)} · ค่าจัดส่ง ${baht(t.ship)}</p><h3>รวม ${baht(t.total)}</h3>
- <form id="f-checkout"><label>ที่อยู่จัดส่ง</label><textarea name="address" rows="2" required>${esc(S.me.address)}</textarea><p><button class="pri">ยืนยันคำสั่งซื้อ</button></p></form>`;
+ return `<h2>ตะกร้าสินค้า</h2><div class="card scroll"><table><tr><th>สินค้า</th><th>จำนวน</th><th>ราคา</th><th></th></tr>`+S.cart.map((i,x)=>`<tr><td>${esc(i.name)}<div class="mute">${esc(customText(i.custom))||"ยังไม่ได้เลือกตัวเลือกปรับแต่ง"}</div></td><td>${i.qty}</td><td>${baht(i.price*i.qty+lineFee(i))}</td><td><button class="dng" data-act="rm" data-i="${x}">ลบ</button></td></tr>`).join("")+`</table></div>
+ <div class="card" style="background:var(--soft)">
+  <div class="sum">ค่าสินค้า <b>${baht(t.goods)}</b></div>
+  <div class="sum">ค่าปรับแต่ง <b>${baht(t.cf)}</b></div>
+  <div class="sum">ค่าจัดส่ง <b>${baht(t.ship)}</b></div>
+  <div class="sum total">รวม <b class="price">${baht(t.total)}</b></div>
+ </div>
+ <p><button class="pri" data-go="checkout">ไปหน้าสั่งซื้อ — เลือกสี/ขนาด/ข้อความ และชำระเงิน</button></p>
+ <p class="mute">ขั้นตอนสั่งซื้อ: 1) เลือกสี/ขนาด/ลาย/ข้อความ 2) กรอกที่อยู่จัดส่ง 3) ชำระเงิน (ยอดรวมรวมค่าจัดส่งแล้ว)</p>`;
 }
+
+/* ---------- หน้าสั่งซื้อ: 1 ปรับแต่ง → 2 ข้อมูลจัดส่ง → 3 ชำระเงิน (ยอดรวมรวมค่าจัดส่ง) ---------- */
+const CK_STEPS=[["1","ปรับแต่งสินค้า"],["2","ข้อมูลจัดส่ง"],["3","ชำระเงิน"]];
+/* สินค้านี้ปรับแต่งได้ไหม — ดูจากสินค้าปัจจุบันในร้าน (ถ้าสินค้าถูกลบไป ใช้ค่าที่บันทึกมากับตะกร้าแทน) */
+const ckCustom=i=>{const p=DB.products.find(x=>x.id===i.pid);return p?!!p.custom:!!i.custom};
+const ckOpt=(n,list,val)=>`<select name="${n}"><option value="">ไม่เลือก</option>${list.map(o=>`<option ${o===val?"selected":""}>${esc(o)}</option>`).join("")}</select>`;
+function ckHead(){
+ return `<div class="steps">`+CK_STEPS.map(([n,l],i)=>`<div class="step ${i+1<=S.step?"done":""}">${n}. ${l}</div>`).join("")+`</div>`;
+}
+function ckItems(){
+ return `<div class="scroll"><table><tr><th>สินค้า</th><th>จำนวน</th><th>ราคา</th></tr>`+S.cart.map(i=>`<tr><td>${esc(i.name)}<div class="mute">${esc(customText(i.custom))||"ไม่ได้ปรับแต่ง"}</div></td><td>${i.qty}</td><td>${baht(i.price*i.qty+lineFee(i))}</td></tr>`).join("")+`</table></div>`;
+}
+/* ขั้นตอนที่ 1 — เลือกสี / ขนาด / ลาย / ข้อความ */
+function ckStep1(){
+ return `<form id="f-cust">`+S.cart.map((i,x)=>{
+  const c=i.custom||{};
+  const opt=ckCustom(i)?`<div class="optgrid">
+   <div><label>สี</label>${ckOpt(`i${x}_color`,CUSTOM.color,c["สี"])}</div>
+   <div><label>ขนาด</label>${ckOpt(`i${x}_size`,CUSTOM.size,c["ขนาด"])}</div>
+   <div><label>ลาย</label>${ckOpt(`i${x}_pattern`,CUSTOM.pattern,c["ลาย"])}</div>
+   <div><label>ข้อความ / ตัวอักษร</label><input name="i${x}_text" maxlength="1" value="${esc(c["ตัวอักษร"]||"")}" placeholder="A–Z หรือ ก–ฮ"></div>
+  </div><div class="mute">ค่าปรับแต่ง ตัวเลือกละ ${CUSTOM_FEE} บาท ต่อ 1 ชิ้น (เลือกได้มากกว่า 1 ข้อ)</div>`
+  :`<div class="mute">สินค้านี้ไม่มีตัวเลือกปรับแต่ง</div>`;
+  return `<div class="card" style="margin-bottom:12px"><div class="row"><b>${esc(i.name)}</b><span class="mute">× ${i.qty} · ${baht(i.price*i.qty)}</span></div>${opt}</div>`;
+ }).join("")+`<p><button class="pri">ไปขั้นตอนถัดไป — ข้อมูลจัดส่ง</button></p></form>`;
+}
+/* ขั้นตอนที่ 2 — ที่อยู่จัดส่ง */
+function ckStep2(){
+ const t=totals(S.cart);
+ return `<form id="f-addr"><div class="card">
+  <label>ชื่อผู้รับ</label><input name="name" value="${esc(S.me.name)}" required>
+  <label>เบอร์โทรศัพท์</label><input name="phone" value="${esc(S.me.phone||"")}" required>
+  <label>ที่อยู่จัดส่ง</label><textarea name="address" rows="3" required>${esc(S.addr||S.me.address||"")}</textarea>
+  <div class="mute">ค่าจัดส่ง ${baht(t.ship)} — รวมไว้ในยอดชำระขั้นตอนถัดไป (ที่อยู่นี้จะถูกบันทึกไว้ในบัญชี เพื่อใช้ครั้งถัดไป)</div>
+  <p><button class="pri">ไปขั้นตอนถัดไป — ชำระเงิน</button></p></div></form>
+ <p><button data-act="ck-step" data-step="1">ย้อนกลับ — แก้ไขตัวเลือกสินค้า</button></p>`;
+}
+/* ขั้นตอนที่ 3 — ชำระเงิน (ยอดชำระรวมค่าจัดส่ง) */
+function ckStep3(){
+ const t=totals(S.cart),b=DB.bank||{};
+ const noOpt=S.cart.filter(i=>ckCustom(i)&&!customText(i.custom));
+ return `<form id="f-pay">
+  <div class="card"><b>สรุปรายการ</b>${ckItems()}
+   <div class="sum">ค่าสินค้า <b>${baht(t.goods)}</b></div>
+   <div class="sum">ค่าปรับแต่ง <b>${baht(t.cf)}</b></div>
+   <div class="sum">ค่าจัดส่ง <b>${baht(t.ship)}</b></div>
+   <div class="sum total">ยอดชำระรวม <b class="price">${baht(t.total)}</b></div>
+   <div class="mute">ยอดชำระข้างบนรวมค่าจัดส่งแล้ว · ส่งที่ ${esc(S.addr||S.me.address||"-")}</div>
+   ${noOpt.length?`<div class="mute" style="color:var(--warn)">ยังไม่ได้เลือกตัวเลือกปรับแต่งของ ${noOpt.map(i=>esc(i.name)).join(", ")} — ถ้าต้องการปรับแต่ง กด “ย้อนกลับ” ไปเลือกได้</div>`:""}
+  </div>
+  <div class="card"><b>ชำระเงิน</b>
+   <div class="row">โอนเข้าบัญชี <b>${esc(b.bank)}</b> · ${esc(b.name)} · เลขที่ <b>${esc(b.no)}</b></div>
+   <label>แนบสลิปโอนเงิน (ถ้าพร้อม — ถ้ายังไม่โอน สั่งซื้อก่อนได้ แล้วค่อยแนบในหน้า “คำสั่งซื้อ” ทีหลัง)</label>
+   <input type="file" accept="image/*" id="ck-slip">
+   <div class="mute" id="ck-slip-name">${esc(S.payName||"")}</div>
+   <p><button class="pri">ยืนยันการสั่งซื้อ · ${baht(t.total)}</button></p>
+  </div></form>
+ <p><button data-act="ck-step" data-step="2">ย้อนกลับ — แก้ไขที่อยู่จัดส่ง</button></p>`;
+}
+function vCheckout(){
+ if(!S.me)return `<h2>สั่งซื้อ</h2><div class="card"><b>ต้องเข้าสู่ระบบก่อนจึงจะสั่งซื้อได้</b><p class="mute">เข้าสู่ระบบหรือสมัครสมาชิก แล้วเลือกสินค้าใหม่อีกครั้ง</p><p><button class="pri" data-go="login">เข้าสู่ระบบ / สมัครสมาชิก</button></p></div>`;
+ if(!S.cart.length)return `<h2>สั่งซื้อ</h2><div class="card"><b>ยังไม่มีสินค้าในตะกร้า</b><p class="mute">เลือกสินค้าที่ชอบก่อน แล้วกลับมาสั่งซื้อได้ที่นี่</p><p><button class="pri" data-go="shop">ดูสินค้า</button></p></div>`;
+ return `<h2>สั่งซื้อ</h2>`+ckHead()+(S.step===1?ckStep1():S.step===2?ckStep2():ckStep3());
+}
+
 function timeline(o){
  const k=FLOW.indexOf(o.status);
  if(o.status==="ยกเลิก")return `<span class="tag bad">ยกเลิก</span>`;

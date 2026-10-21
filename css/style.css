@@ -29,6 +29,9 @@ a.btn{display:inline-block;text-decoration:none}
 .mute{color:var(--mute);font-size:14px}
 label{display:block;font-size:14px;color:var(--mute);margin:10px 0 3px}
 input,select,textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.sum{display:flex;justify-content:space-between;gap:12px;padding:4px 0;align-items:baseline}
+.sum.total{border-top:1px dashed var(--line);margin-top:8px;padding-top:10px;font-size:18px;font-weight:700}
+.optgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 14px;margin-top:4px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .tag{display:inline-block;padding:1px 10px;border-radius:99px;font-size:13px;background:var(--soft);color:var(--brand);font-weight:600}
 .tag.ok{color:var(--ok)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}

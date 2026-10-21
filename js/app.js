@@ -1,5 +1,5 @@
 /* ---------- Router ---------- */
-const VIEWS={login:vLogin,shop:vShop,detail:vDetail,cart:vCart,orders:vOrders,profile:vProfile,"a-orders":vAOrders,"a-products":vAProducts,"a-users":vAUsers,"a-sync":vASync};
+const VIEWS={login:vLogin,shop:vShop,detail:vDetail,cart:vCart,checkout:vCheckout,orders:vOrders,profile:vProfile,"a-orders":vAOrders,"a-products":vAProducts,"a-users":vAUsers,"a-sync":vASync};
 const ADMIN_ONLY=["a-orders","a-products","a-users","a-sync"];
 const BROWSE=["login","shop","detail"];   // หน้าที่คนยังไม่ได้ลงทะเบียนดูได้ (สินค้าอย่างเดียว ซื้อไม่ได้)
 function render(){
@@ -21,6 +21,7 @@ document.addEventListener("click",e=>{
  if(a==="delp"&&confirm("ลบสินค้านี้?")){DB.products=DB.products.filter(p=>p.id!==+b.dataset.id);save();render()}
  if(a==="clrpimg"){const v=$("#pimg-val"),pr=$("#pimg-prev");if(v)v.value="";if(pr)pr.innerHTML="📿"}
  if(a==="sliponly"){S.slipOnly=!S.slipOnly;render()}
+ if(a==="ck-step"){S.payName="";S.step=Math.min(3,Math.max(1,+b.dataset.step||1));render();return}
  if(a==="auto"){S.auto=S.auto===false;syncPoll();render();toast(S.auto?"เปิดอัปเดตอัตโนมัติ (ทุก 20 วินาที)":"ปิดอัปเดตอัตโนมัติ — กด “อัปเดตเดี๋ยวนี้” เอง")}
  if(a==="refresh"){toast("กำลังดึงข้อมูลล่าสุด...");pullQuiet(true).then(ok=>toast(ok?"อัปเดตล่าสุด "+lastSync:"ดึงข้อมูลไม่ได้ — ตรวจการเชื่อมต่อ/ลิงก์ชีต"))}
  if(a==="sheet-save"){setSheetUrl($("#sheet-url").value);toast(sheetUrl?"บันทึกลิงก์แล้ว":"ล้างลิงก์แล้ว")}
@@ -29,6 +30,12 @@ document.addEventListener("click",e=>{
  if(a==="sheet-pull")sheetPull();
 });
 document.addEventListener("change",async e=>{
+ if(e.target.id==="ck-slip"){   // เลือกไฟล์สลิปในขั้นตอนชำระเงิน — โชว์ชื่อไฟล์ (ย่อรูปจริงตอนกดยืนยัน)
+  const fl=e.target.files&&e.target.files[0];
+  S.payName=fl?fl.name:"";
+  const nm=$("#ck-slip-name");if(nm)nm.textContent=S.payName;
+  return;
+ }
  const id=e.target.dataset?.slip;
  if(id){
   const f=e.target.files[0];if(!f)return;
@@ -47,7 +54,7 @@ document.addEventListener("change",async e=>{
   catch(err){toast("อัปโหลดรูปไม่ได้: "+err.message)}
  }
 });
-document.addEventListener("submit",e=>{
+document.addEventListener("submit",async e=>{
  e.preventDefault();const f=e.target,d=Object.fromEntries(new FormData(f));
  if(f.id==="f-auth"){
   if(S.mode==="register"){
@@ -66,14 +73,42 @@ document.addEventListener("submit",e=>{
   S.cart.push({pid:p.id,name:p.name,price:p.price,ship:p.ship,qty:Math.max(1,+d.qty||1),custom});
   toast("เพิ่มลงตะกร้าแล้ว");go("cart");
  }
- if(f.id==="f-checkout"){
-  if(!S.me)return go("login");
-  const t=totals(S.cart);
-  const o={id:DB.nextOrder++,userId:S.me.id,date:new Date().toISOString().slice(0,10),items:S.cart,address:d.address,total:t.total,status:"รอชำระเงิน",slip:"",slipImg:"",carrier:"",tracking:"",synced:false,pending:true};
-  DB.orders.push(o);
-  S.cart=[];save();toast("สั่งซื้อแล้ว กรุณาโอนเงินและแนบสลิป");go("orders");
-  orderPush(o).then(ok=>{toast(ok?"ส่งคำสั่งซื้อให้แอดมินแล้ว":"ยังส่งขึ้นชีตไม่ได้ — ระบบจะลองใหม่เองทุก 20 วินาที");if(S.view==="orders")render()});
- }
+ if(f.id==="f-cust"){   // ขั้นตอนที่ 1 — เก็บตัวเลือกสี/ขนาด/ลาย/ข้อความ ลงในตะกร้า
+ if(!S.me)return go("login");
+ S.cart.forEach((i,x)=>{
+  if(!ckCustom(i))return;   // สินค้าที่ปิดการปรับแต่ง — ไม่แตะค่าเดิม
+  const g=k=>(d[k]||"").trim();
+  const col=g(`i${x}_color`),sz=g(`i${x}_size`),pat=g(`i${x}_pattern`),txt=g(`i${x}_text`);
+  i.custom=(col||sz||pat||txt)?{สี:col,ขนาด:sz,ลาย:pat,ตัวอักษร:txt}:null;
+ });
+ S.step=2;render();return;
+}
+if(f.id==="f-addr"){   // ขั้นตอนที่ 2 — ที่อยู่จัดส่ง (บันทึกไว้ในบัญชีด้วย)
+ if(!S.me)return go("login");
+ S.addr=(d.address||"").trim();
+ if(d.name)S.me.name=d.name.trim();
+ if(d.phone)S.me.phone=d.phone.trim();
+ S.me.address=S.addr;
+ save();
+ S.step=3;render();return;
+}
+if(f.id==="f-pay"){   // ขั้นตอนที่ 3 — ยืนยันและสร้างออเดอร์ (ยอดรวมรวมค่าจัดส่งแล้ว)
+ if(!S.me)return go("login");
+ const t=totals(S.cart);
+ let slip="",slipImg="";
+ const fi=f.querySelector("#ck-slip"),file=fi&&fi.files&&fi.files[0];
+ if(file){try{slipImg=await shrinkImage(file,1400,.85);slip=file.name}
+  catch(err){toast("อ่านไฟล์สลิปไม่ได้: "+err.message)}}
+ const o={id:DB.nextOrder++,userId:S.me.id,date:new Date().toISOString().slice(0,10),
+  items:S.cart.map(i=>({...i,custom:i.custom?{...i.custom}:null})),
+  address:S.addr||S.me.address||"",total:t.total,status:"รอชำระเงิน",
+  slip,slipImg,carrier:"",tracking:"",synced:false,pending:true};
+ DB.orders.push(o);
+ S.cart=[];S.step=1;S.addr="";S.payName="";save();
+ toast("สั่งซื้อแล้ว กรุณาโอนเงินและแนบสลิป");go("orders");
+ orderPush(o).then(ok=>{toast(ok?"ส่งคำสั่งซื้อให้แอดมินแล้ว":"ยังส่งขึ้นชีตไม่ได้ — ระบบจะลองใหม่เองทุก 20 วินาที");if(S.view==="orders")render()});
+ return;
+}
  if(f.id==="f-profile"){if(!S.me)return go("login");Object.assign(S.me,d);save();usersPush();toast("บันทึกแล้ว")}
  if(f.id==="f-prod"){
   if(S.me?.role!=="admin")return toast("ต้องเข้าสู่ระบบด้วยสิทธิ์แอดมิน");
