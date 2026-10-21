@@ -39,7 +39,7 @@ function vAProducts(){
  <div><label>ไอคอน</label><input name="icon" maxlength="2" value="${esc(p?.icon||"📿")}" style="width:70px"></div>
  <div><label>ราคา</label><input name="price" type="number" min="0" required value="${p?.price??""}" style="width:100px"></div>
  <div><label>ค่าจัดส่ง</label><input name="ship" type="number" min="0" value="${p?.ship??59}" style="width:100px"></div>
- <div><label>ขนาด</label><input name="size" value="${esc(p?.size)}"></div></div>
+ <div><label>ขนาด</label><input name="size" value="${esc(p?.size||SIZE_DEFAULT)}"></div></div>
  <label>รายละเอียดสินค้า</label><textarea name="desc" rows="3">${esc(p?.desc)}</textarea>
  <div class="row" style="align-items:flex-start;margin-top:6px">
   <div style="flex:1;min-width:200px"><label>ภาพสินค้า</label><input type="file" accept="image/*" data-pimg="1">

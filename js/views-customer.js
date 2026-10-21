@@ -1,6 +1,6 @@
 /* ---------- Customer ---------- */
 function vShop(){
- return `<h2>สินค้าแนะนำ</h2>${S.me?"":`<div class="card" style="background:var(--soft);margin-bottom:12px">คุณกำลังดูใน <b>โหมดผู้เยี่ยมชม</b> — ดูรายละเอียดสินค้าได้ทุกชิ้น แต่ต้องลงทะเบียน/เข้าสู่ระบบก่อนจึงจะเพิ่มลงตะกร้าและสั่งซื้อได้ <button class="pri" data-go="login">เข้าสู่ระบบ / สมัครสมาชิก</button></div>`}<div class="grid">`+DB.products.map(p=>`<div class="card"><div class="ph">${pImg(p)}</div><b>${esc(p.name)}</b><div class="mute">${esc(p.category)} · ${esc(p.size)}</div><p class="price">${baht(p.price)}</p><button class="pri" data-go="detail" data-id="${p.id}">ดูรายละเอียด</button></div>`).join("")+`</div>`;
+ return `<h2>สินค้าแนะนำ</h2>${S.me?"":`<div class="card" style="background:var(--soft);margin-bottom:12px">คุณกำลังดูใน <b>โหมดผู้เยี่ยมชม</b> — ดูรายละเอียดสินค้าได้ทุกชิ้น แต่ต้องลงทะเบียน/เข้าสู่ระบบก่อนจึงจะเพิ่มลงตะกร้าและสั่งซื้อได้ <button class="pri" data-go="login">เข้าสู่ระบบ / สมัครสมาชิก</button></div>`}<div class="grid">`+DB.products.map(p=>`<div class="card"><div class="ph">${pImg(p)}</div><b>${esc(p.name)}</b><div class="mute">${esc(p.category)} · ${esc(p.size||SIZE_DEFAULT)}</div><p class="price">${baht(p.price)}</p><button class="pri" data-go="detail" data-id="${p.id}">ดูรายละเอียด</button></div>`).join("")+`</div>`;
 }
 function vDetail(){
  const p=DB.products.find(x=>x.id===S.sel);
@@ -11,7 +11,7 @@ function vDetail(){
   ${canCustom(p)?`<h3>ปรับแต่งสินค้า (ตัวเลือกละ ${CUSTOM_FEE} บาท)</h3>${sel("สี",CUSTOM.color)}${sel("ขนาด",CUSTOM.size)}${sel("ลาย",CUSTOM.pattern)}<label>ตัวอักษร (A–Z, ก–ฮ)</label><input name="ตัวอักษร" maxlength="1" style="max-width:100px">`:""}
   <p><button class="pri">เพิ่มลงตะกร้า</button></p></form>`
   :`<div class="card" style="background:var(--soft)"><b>ต้องลงทะเบียน/เข้าสู่ระบบก่อนจึงจะสั่งซื้อได้</b><div class="mute">ตอนนี้คุณดูสินค้าในโหมดผู้เยี่ยมชม</div><p><button class="pri" data-go="login">เข้าสู่ระบบ / สมัครสมาชิก</button></p></div>`;
- return `<button data-go="shop">กลับ</button><div class="card" style="margin-top:12px"><div class="row"><div class="ph" style="width:180px;height:180px;font-size:70px">${pImg(p)}</div><div style="flex:1;min-width:220px"><h2>${esc(p.name)}</h2><div class="mute">${esc(p.category)}</div><p>${esc(p.desc)}</p><p class="mute">ขนาด ${esc(p.size)} · ค่าจัดส่ง ${baht(p.ship)}</p><p class="price">${baht(p.price)}</p></div></div>
+ return `<button data-go="shop">กลับ</button><div class="card" style="margin-top:12px"><div class="row"><div class="ph" style="width:180px;height:180px;font-size:70px">${pImg(p)}</div><div style="flex:1;min-width:220px"><h2>${esc(p.name)}</h2><div class="mute">${esc(p.category)}</div><p>${esc(p.desc)}</p><p class="mute">ขนาด ${esc(p.size||SIZE_DEFAULT)} · ค่าจัดส่ง ${baht(p.ship)}</p><p class="price">${baht(p.price)}</p></div></div>
  ${add}</div>`;
 }
 function lineFee(i){return i.custom?Object.values(i.custom).filter(Boolean).length*CUSTOM_FEE*i.qty:0}
